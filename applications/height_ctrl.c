@@ -189,15 +189,15 @@ void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
 
     /* 向上的加速度积分数据和高度融合 */
     /* 没有重力数的据提取 */
-    wz_acc_mms2 = (wz_acc/4096.0f) *10000 + hc_acc_i;
+    wz_acc_mms2 = (wz_acc/4096.0f) *10000 + hc_acc_i;  //wz_acc 是根据mpu6050六轴传感器的数据算出来的垂直方向的加速度 wz_acc_mms2是根据wz_acc运算并加上积分滤波结果得到
     /* 死区范围外数据积分 */
-    wz_speed_0 += my_deathzoom( (wz_acc_mms2 ) ,100) *T;
+    wz_speed_0 += my_deathzoom( (wz_acc_mms2 ) ,100) *T; //根据mpu6050数据得到最新估算速度  wz_speed_0 = wz_speed_0 + wz_acc_mms2（加速度）* T（时间）
     /* 加速度数据积分 */
-    hc_acc_i += 0.4f *T *( (wz_speed - wz_speed_old)/T - wz_acc_mms2 );
+    hc_acc_i += 0.4f *T *( (wz_speed - wz_speed_old)/T - wz_acc_mms2 ); //垂直方向加速度积分滤波 新加速度是上次记录的速度wz_speed - wz_speed_1
     /* 加速度数据积分限幅 */
     hc_acc_i = LIMIT( hc_acc_i, -500, 500 );
     /* 高度数据积分滤波 */
-    wz_speed_0 += ( 1 / ( 1 + 1 / ( 0.1f *3.14f *T ) ) ) *( h_speed - wz_speed_0  ) ;
+    wz_speed_0 += ( 1 / ( 1 + 1 / ( 0.1f *3.14f *T ) ) ) *( h_speed - wz_speed_0  ) ;   //气压计测出的速度 和 推算出来的速度 做积分滤波 得到新的估算速度
     /* 计算出的速度赋值 */
     wz_speed_1 = wz_speed_0;
     /* 死区范围外数据有效 */
@@ -205,7 +205,7 @@ void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
     /* 记录上一次数据 */
     wz_speed_old = wz_speed;
     /* 计算出的速度赋值 */
-    wz_speed = wz_speed_1;
+    wz_speed = wz_speed_1;          //垂直方向速度最终结果
 
     /* 向北的加速度积分数据和纬度融合 */
     /* 没有重力数的据提取 */
@@ -217,7 +217,7 @@ void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
     /* 加速度数据积分限幅 */
     north_acc_i = LIMIT( north_acc_i, -500, 500 );
     /* 高度数据积分滤波 */
-    north_speed_0 += ( 1 / ( 1 + 1 / ( 0.1f *3.14f *T ) ) ) *( speed_latitude - north_speed_0  ) ;
+    north_speed_0 += ( 1 / ( 1 + 1 / ( 0.1f *3.14f *T ) ) ) *( speed_latitude - north_speed_0  ) ;  //speed_latitude是实测的向北速度
     /* 计算出的速度赋值 */
     north_speed_1 = north_speed_0;
     /* 死区范围外数据有效 */
@@ -225,7 +225,7 @@ void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
     /* 记录上一次数据 */
     north_speed_old = north_speed;
     /* 计算出的速度赋值 */
-    north_speed = north_speed_1;
+    north_speed = north_speed_1;            //向北方向速度最终结果
 
     /* 向西的加速度积分数据和经度融合 */
     /* 没有重力数的据提取 */
@@ -245,7 +245,19 @@ void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
     /* 记录上一次数据 */
     west_speed_old = west_speed;
     /* 计算出的速度赋值 */
-    west_speed = west_speed_1;
+    west_speed = west_speed_1;              //向西方向速度最终结果
+
+    /*
+     *  2022.9.28
+     *  这里计算出了三个方向（上、北、西）的速度。
+     *  所有速度都是用加速度积分得到的速度然后与传感器测算出来的速度，融合运算得到的。
+     *  
+     *  目前只有垂直速度使用了（在该函数中）。
+     *
+     *  结合上下文判断，在定高模式下，油门控制量转换为垂直方向的速度控制；转换方式为
+     *  #define EXP_Z_SPEED  ( 4.0f *my_deathzoom((thr-500),50) )
+     *  thr为油门值，取值范围 -500 ~ 500；那么垂直方向运动速度期望值范围 -2000 ～ 2000；即2米/秒
+     */
 
     /* 期望速度的比例 */
     wz_speed_pid_v.err = wz_speed_pid.kp *( exp_z_speed - wz_speed );

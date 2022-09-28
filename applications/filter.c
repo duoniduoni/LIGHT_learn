@@ -25,6 +25,14 @@ u8 med_fil_cnt[MED_FIL_ITEM];
  + 调用参数：in：加入的数据 moavarray[]：滑动窗口数组 len：求取数据个数 fil_cnt[2]：数组下标
  + 调用参数：*out ：算出的中位数
 ----------------------------------------------------------*/
+
+/*
+ *  2022.9.28
+ *  这个滑动窗口滤波有点奇怪
+ *      1. 计算的是前后2次数据的差
+ *      2. 取平均值不是 / 2，而是 / width_num（这里是100）
+ *      3. 感觉是缩小了结果并且缩小了结果的变化速率
+ */
 void Moving_Average(float in,float moavarray[],u16 len ,u16 fil_cnt[2],float *out)
 {
     u16 width_num = len ;
