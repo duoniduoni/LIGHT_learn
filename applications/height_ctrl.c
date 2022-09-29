@@ -125,7 +125,8 @@ void Height_Ctrl(float T,float thr)
             if(hs_ctrl_cnt == 0)
             {
                 /* 超声波高度速度控制 */
-                height_speed_ctrl(0.02f,thr,0.4f*ultra_ctrl_out,ultra_speed);
+                height_speed_ctrl(0.02f,thr,0.4f*ultra_ctrl_out,ultra_speed);//这里将高度控制量转化为垂直方向运动的速度,至于为啥乘以0.4就不清楚了，推测高度差距越大调整的越快。
+
             }
             /* 超声波有接收到数据状态 */
             if( ultra_state == 0 )
@@ -170,6 +171,14 @@ void WZ_Speed_PID_Init()
 /*----------------------------------------------------------
  + 实现功能：高度的速度控制
  + 调用参数：两次调用时间间隔 遥控器油门控制量 期望垂直方向速度 垂直方向速度
+
+ 2022.9.29
+ 该方法控制垂直方向的运动速度
+ exp_z_speed 是期望的运动速度，h_speed是实际速度。
+
+ 该方法运用在定高模式下：
+ 1. 气压定高，仅仅对运动速度做控制。
+ 2. 超声波定高，对高度和速度都做控制。
 ----------------------------------------------------------*/
 void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
 {
@@ -253,10 +262,6 @@ void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
      *  所有速度都是用加速度积分得到的速度然后与传感器测算出来的速度，融合运算得到的。
      *  
      *  目前只有垂直速度使用了（在该函数中）。
-     *
-     *  结合上下文判断，在定高模式下，油门控制量转换为垂直方向的速度控制；转换方式为
-     *  #define EXP_Z_SPEED  ( 4.0f *my_deathzoom((thr-500),50) )
-     *  thr为油门值，取值范围 -500 ~ 500；那么垂直方向运动速度期望值范围 -2000 ～ 2000；即2米/秒
      */
 
     /* 期望速度的比例 */
@@ -268,7 +273,7 @@ void height_speed_ctrl(float T,float thr,float exp_z_speed,float h_speed)
     /* 期望速度的积分限幅 */
     wz_speed_pid_v.err_i = LIMIT(wz_speed_pid_v.err_i,-Thr_Weight *300,Thr_Weight *300);
     /* 期望速度的PID和 */
-    wz_speed_pid_v.pid_out = thr_lpf + Thr_Weight *LIMIT((wz_speed_pid.kp *exp_z_speed + wz_speed_pid_v.err + wz_speed_pid_v.err_d + wz_speed_pid_v.err_i),-300,300);
+    wz_speed_pid_v.pid_out = thr_lpf + Thr_Weight *LIMIT((wz_speed_pid.kp *exp_z_speed + wz_speed_pid_v.err + wz_speed_pid_v.err_d + wz_speed_pid_v.err_i),-300,300);//这里将速度转换为油门值
     /* 记录上一次的期望速度的 */
     wz_speed_pid_v.err_old = wz_speed_pid_v.err;
 }
@@ -319,9 +324,13 @@ void Ultra_Ctrl(float T,float thr)
     float ultra_sp_tmp,ultra_dis_tmp;
 
     /* 超声波期望速度 */
-    exp_height_speed = ULTRA_SPEED * my_deathzoom_2(thr - 500,50) ;
+    exp_height_speed = ULTRA_SPEED * my_deathzoom_2(thr - 500,50) ; //油门值转化为速度，取值范围  -1000 ～ 1000 *ULTRA_SPEED；大概 -625 ～ 625 mm/s
     /* 超声波期望速度限幅 */
-    exp_height_speed = LIMIT(exp_height_speed ,Min_ULTRA_SPEED,Max_ULTRA_SPEED);
+    exp_height_speed = LIMIT(exp_height_speed ,Min_ULTRA_SPEED,Max_ULTRA_SPEED);    //这里进一步对速度做了限制 下降速率150mm/s,上升速度250mm/s。
+
+    /*
+     *  这里看起来，超声波定高模式下，仅运行在20mm ～ 1500mm之间。
+     */
 
     /* 超声波定高最大高度限制 1500mm */
     if( exp_height > ULTRA_MAX_HEIGHT )
@@ -399,7 +408,7 @@ void Ultra_Ctrl(float T,float thr)
     /* 超声波高度控制PID限度 */
     ultra_ctrl.pid_out = LIMIT(ultra_ctrl.pid_out,-500,500);
     /* 超声波高度控制PID输出量 */
-    ultra_ctrl_out = ultra_ctrl.pid_out;
+    ultra_ctrl_out = ultra_ctrl.pid_out;            //这里是高度控制量
     /* 记录上一次数据 */
     ultra_ctrl.err_old = ultra_ctrl.err;
 }
